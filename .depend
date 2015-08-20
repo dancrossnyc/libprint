@@ -1,0 +1,5 @@
+print.o : print.c print.h 
+mprint.o : mprint.c print.h 
+conv.o : conv.c print.h 
+runeconv.o : runeconv.c print.h rune.h 
+rune.o : rune.c rune.h 
