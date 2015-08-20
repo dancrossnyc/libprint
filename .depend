@@ -1,5 +1,13 @@
-print.o : print.c print.h 
-mprint.o : mprint.c print.h 
-conv.o : conv.c print.h 
-runeconv.o : runeconv.c print.h rune.h 
-rune.o : rune.c rune.h 
+conv.o: conv.c print.h
+mprint.o: mprint.c print.h
+print.o: print.c print.h
+rune.o: rune.c rune.h
+runeconv.o: runeconv.c print.h rune.h
+t1.o: t1.c print.h
+t2.o: t2.c print.h
+t3.o: t3.c print.h
+t4.o: t4.c print.h
+t5.o: t5.c print.h
+t6.o: t6.c print.h rune.h
+t7.o: t7.c print.h
+t8.o: t8.c print.h

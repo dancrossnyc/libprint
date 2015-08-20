@@ -1,12 +1,15 @@
+#include <stddef.h>
 
 #include "print.h"
 
-int main()
+int
+main()
 {
-    char junk[] = "abcdefghijklmnopqrstuvwzyz";
-    int jsize = sizeof junk;
-    int width = jsize + 5;
-    print("%*.*s\n", width, jsize, junk);
-    print("%#*.*s\n", width, jsize, junk);
-    exit (0);
+	char junk[] = "abcdefghijklmnopqrstuvwzyz";
+	size_t jsize = sizeof junk;
+	size_t width = jsize + 5;
+	print("%*.*s\n", width, jsize, junk);
+	print("%#*.*s\n", width, jsize, junk);
+
+	return 0;
 }

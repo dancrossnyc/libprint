@@ -17,18 +17,22 @@ typedef struct Format Format;
 typedef int (*Fmtconv)(Format *, int);
 
 struct Format {
-	/* for the formatting routines */
+	// For the formatting routines.
 	va_list args;
 	long flags, f1, f2;
-	Fmtconv* fmttab;
-	/* for the buffer maintainence routines */
+	Fmtconv *fmttab;
+	// For the buffer maintainence routines.
 	char *buf, *bufbegin, *bufend;
 	int flushed;
-	int (*grow)(Format *, SIZE_T);
+	int (*grow)(Format *, size_t);
 	int error;
-	union { int n; void *p; } u;
-	/* misc */
-	void* client_data;
+	int reqlen;
+	union {
+		int n;
+		void *p;
+	} u;
+	// For the sake of reentrancy.
+	void *client_data;
 };
 .fi
 .LP
@@ -47,9 +51,9 @@ int vsnprint (char *buf, int buflen, const char *fmt, va_list)
 .LP
 .nf
 char *mprint (const char *fmt,...)
-char *smprint (Alloc alloc, SIZE_T* len, const char* fmt, ...)
-char *vsmprint (Alloc alloc, SIZE_T* len, const char* fmt, va_list)
-char *palloc (char* p, SIZE_T size)
+char *smprint (Alloc alloc, size_t *len, const char *fmt, ...)
+char *vsmprint (Alloc alloc, size_t *len, const char *fmt, va_list)
+char *palloc (char *p, size_t size)
 .fi
 .LP
 .nf
@@ -58,7 +62,7 @@ Fmtconv fmtinstall (int c, Fmtconv f)
 .LP
 .nf
 int fmtputc (Format *f, const char c)
-int fmtappend (Format *format, const char *s, SIZE_T len)
+int fmtappend (Format *format, const char *s, size_t len)
 int fmtcat (Format *format, const char *s)
 .fi
 .LP
@@ -98,7 +102,7 @@ the number of bytes requested
 check for truncation by comparing this value to the
 size of the buffer.
 .B snprint
-writes at most 
+writes at most
 .I n
 bytes into a user supplied buffer.
 .B vsnprint
@@ -109,7 +113,7 @@ does the same, but takes its  arguments from a
 formats into a dynamically allocated buffer, to which it returns
 a pointer.
 The space is obtained
-from 
+from
 .B malloc
 and should be freed when no longer needed.
 .B smprint
@@ -134,33 +138,33 @@ to a format structure and the character that induced the call.
 It must return FMT_flag if the format character signals
 setting a flag and FMT_verb if it signals performing a conversion.
 
-A conversion function can use 
+A conversion function can use
 .B fmtappend
 to put new text into the output buffer;
 .B fmtputc
-and 
+and
 .B fmtcat
 are supplied for convenience.
 
-.B fmtengine 
+.B fmtengine
 is the entry point for the actual formatting engine.  Given a properly
-initialized format structure and a format string, it will do the 
-specified work.  
+initialized format structure and a format string, it will do the
+specified work.
 
-.B fmtprint 
-is a very general interface to 
+.B fmtprint
+is a very general interface to
 .B fmtengine.
 Its arguments are a properly initialized format structure, a format
-string, and a matching number of parameters.  
+string, and a matching number of parameters.
 .B fmtprint
 saves and restores the argument list stored in the format structure, so
 it can be used inside a conversion function to perform arbitrary
 formatting operations.  This usage avoids the temporary buffers
-that 
+that
 .B fmtappend
 would require.
 .B fmtengine
-and 
+and
 .B fmtprint
 return the number of characters that they generated.
 
@@ -170,7 +174,7 @@ First, variables used by the formatting routines.
 These are:
 .I args,
 the argument list containing the data to be formatted.
-.I flags, 
+.I flags,
 a bitmask storing the flags set at the time each conversion
 function is called.  Possible values are given in print.h.
 .I "f1, f2"
@@ -183,15 +187,15 @@ zero, the global table will be used instead.
 
 Second, variables used for buffer maintainance:
 These are:
-.I buf, 
+.I buf,
 .I bufbegin,
 .I bufend,
-pointers to the insertion point in the output buffer, 
+pointers to the insertion point in the output buffer,
 the buffer itself, and the end of the buffer.
 .I flushed,
 the number of characters that have been transmitted to their
 ultimate destination thus far.
-.I grow, 
+.I grow,
 the buffer growing function, called when the buffer is nearly full
 so that it can be flushed or reallocated.
 .I error,
@@ -221,9 +225,9 @@ A more interesting example is a conversion function that formats
 a string with all unprintable characters quoted as in C.
 
 .nf
-int print_cquote_conv (Format* format, int c)
+int print_cquote_conv (Format *format, int c)
 {
-    unsigned char* s = va_arg (format->args, unsigned char*);
+    unsigned char *s = va_arg (format->args, unsigned char*);
     unsigned char ch;
 
     while ((ch = *s++)) {
@@ -271,7 +275,7 @@ sys_errlist[errno].  With # flag, errno.
 .TP
 .B "n"
 writes the number of characters emitted thus far into into an
-int* argument.  Note!  Since transput stops if an error occurs,
+int *argument.  Note!  Since transput stops if an error occurs,
 this verb may not be executed.
 .PD
 .SS flags
@@ -310,7 +314,7 @@ Set f1 or f2 from int arg.
 .LP
 
 .SH OPTIONAL CONVERSIONS
-Calling 
+Calling
 .I fmt_install_runeconv()
 installs conversion functions which support Unicode 16 bit "Runes"
 by transforming them to the UTF-8 multibyte encoding.
@@ -326,8 +330,8 @@ Byron Rakitzis' implementation of
 
 .SH AUTHORS
 .LP
-libprint: 
-Paul Haahr, 
+libprint:
+Paul Haahr,
 Byron Rakitzis,
 Scott Schwartz.
 .LP
@@ -358,47 +362,47 @@ maxint, minint)?
 .LP
 What should snprint return?  Number of bytes requested, or transferred?
 .LP
-fmtputc still feels kludgy.  It used to directly write bytes into 
-the buffer, in an attempt at efficiency, but that turned out to 
+fmtputc still feels kludgy.  It used to directly write bytes into
+the buffer, in an attempt at efficiency, but that turned out to
 complicate snprint. Now it just calls fmtappend.
 
 .SH COPYRIGHT
-All files in this library except rune.c and rune.h are 
+All files in this library except rune.c and rune.h are
 covered by the following copyright notice:
 
-.RS 
+.RS
 .ps -2
 .\" ---------- ---------- ---------- ----------
 Copyright 1994 Paul Haahr, Scott Schwartz, Byron Rakitzis.
 All rights reserved.
- 
+
 This software is not subject to any license of the American Telephone
 and Telegraph Company or of the Regents of the University of California.
- 
+
 Permission is granted to anyone to use this software for any purpose on
 any computer system, and to alter it and redistribute it freely, subject
 to the following restrictions:
- 
+
 1. The author is not responsible for the consequences of use of this
 software, no matter how awful, even if they arise from flaws in it.
- 
+
 2. The origin of this software must not be misrepresented, either by
 explicit claim or by omission.  Since few users ever read sources,
 credits must appear in the documentation.
- 
+
 3. Altered versions must be plainly marked as such, and must not be
 misrepresented as being the original software.  Since few users
 ever read sources, credits must appear in the documentation.
- 
+
 4. This notice may not be removed or altered.
- 
+
 [this copyright notice is adapted from Henry Spencer's
 "awf" copyright notice.]
 .\" ---------- ---------- ---------- ----------
 .ps
 .RE
 
-The files rune.c and rune.h, originally distributed 
+The files rune.c and rune.h, originally distributed
 as part of the sam editor, are covered by
 the following copyright notice:
 

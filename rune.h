@@ -1,7 +1,7 @@
-#ifndef __rune_h
-#define __rune_h
+#ifndef RUNE_H_
+#define RUNE_H_
 
-/* 
+/*
  * The authors of this software are Rob Pike and Howard Trickey.
  * 		Copyright (c) 1992 by AT&T.
  * Permission to use, copy, modify, and distribute this software for any
@@ -17,33 +17,30 @@
 
 /* Copyright (c) 1992 AT&T - All rights reserved. */
 
-	/* Plan 9 C library interface */
+/* Plan 9 C library interface */
+typedef unsigned short Rune;
 
-
-typedef	unsigned short		Rune;
-
-enum
-{
-	UTFmax		= 3,		/* maximum bytes per rune */
-	Runesync	= 0x80,		/* cannot represent part of a utf sequence (<) */
-	Runeself	= 0x80,		/* rune and utf sequences are the same (<) */
-	Runeerror	= 0x80		/* decoding error in utf */
+enum {
+	UTFmax = 3,		/* maximum bytes per rune */
+	Runesync = 0x80,	/* cannot represent part of a utf sequence (<) */
+	Runeself = 0x80,	/* rune and utf sequences are the same (<) */
+	Runeerror = 0x80	/* decoding error in utf */
 };
 
 /*
  * new rune routines
  */
-extern	int	runetochar(char*, const Rune*);
-extern	int	chartorune(Rune*, const char*);
-extern	int	runelen(long);
-extern	int	fullrune(const char*, const int);
+extern int runetochar(char *, const Rune *);
+extern int chartorune(Rune *, const char *);
+extern int runelen(long);
+extern int fullrune(const char *, const int);
 
 /*
  * rune routines from converted str routines
  */
-extern	long	utflen(const char*);		/* was countrune */
-extern	char*	utfrune(char*, const long);
-extern	char*	utfrrune(char*, const long);
-extern	char*	utfutf(const char*, const char*);
+extern long utflen(const char *);	/* was countrune */
+extern char *utfrune(char *, const long);
+extern char *utfrrune(char *, const long);
+extern char *utfutf(const char *, const char *);
 
-#endif
+#endif  // RUNE_H_

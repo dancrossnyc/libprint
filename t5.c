@@ -1,14 +1,13 @@
-
 #include "print.h"
 
-int main()
+int
+main()
 {
-    int i;
-    char ch;
 
-    for (i=0; i<256; ++i) {
-	ch = i;
-        print ("%o %o %03uo\n", i, ch, ch);
-    }
-    exit (0);
+	for (int i = 0; i < 256; ++i) {
+		char ch = i;
+		print("%o %o %03uo\n", i, ch, ch);
+	}
+
+	return 0;
 }
