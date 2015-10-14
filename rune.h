@@ -17,14 +17,18 @@
 
 /* Copyright (c) 1992 AT&T - All rights reserved. */
 
+#include <stddef.h>
+#include <stdint.h>
+
 /* Plan 9 C library interface */
-typedef unsigned short Rune;
+typedef uint32_t Rune;
 
 enum {
-	UTFmax = 3,		/* maximum bytes per rune */
+	UTFmax = 4,		/* maximum bytes per rune */
 	Runesync = 0x80,	/* cannot represent part of a utf sequence (<) */
 	Runeself = 0x80,	/* rune and utf sequences are the same (<) */
-	Runeerror = 0x80	/* decoding error in utf */
+	Runeerror = 0x80,	/* decoding error in utf */
+	Runemax = 0x10FFFF	/* maximum rune value */
 };
 
 /*
@@ -33,14 +37,15 @@ enum {
 extern int runetochar(char *, const Rune *);
 extern int chartorune(Rune *, const char *);
 extern int runelen(long);
+extern size_t runenlen(const Rune *r, int nrune);
 extern int fullrune(const char *, const int);
 
 /*
  * rune routines from converted str routines
  */
-extern long utflen(const char *);	/* was countrune */
-extern char *utfrune(char *, const long);
-extern char *utfrrune(char *, const long);
+extern size_t utflen(const char *);	/* was countrune */
+extern char *utfrune(const char *, const long);
+extern char *utfrrune(const char *, const long);
 extern char *utfutf(const char *, const char *);
 
 #endif  // RUNE_H_

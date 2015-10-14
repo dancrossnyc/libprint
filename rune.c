@@ -1,20 +1,20 @@
 /*
- * The authors of this software are Rob Pike and Howard Trickey.
- * 		Copyright (c) 1992 by AT&T.
+ * The authors of this software are Rob Pike and Ken Thompson.
+ *              Copyright (c) 2002 by Lucent Technologies.
  * Permission to use, copy, modify, and distribute this software for any
  * purpose without fee is hereby granted, provided that this entire notice
  * is included in all copies of any software which is or includes a copy
  * or modification of this software and in all copies of the supporting
  * documentation for such software.
  * THIS SOFTWARE IS BEING PROVIDED "AS IS", WITHOUT ANY EXPRESS OR IMPLIED
- * WARRANTY.  IN PARTICULAR, NEITHER THE AUTHORS NOR AT&T MAKE ANY
- * REPRESENTATION OR WARRANTY OF ANY KIND CONCERNING THE MERCHANTABILITY
+ * WARRANTY.  IN PARTICULAR, NEITHER THE AUTHORS NOR LUCENT TECHNOLOGIES MAKE
+ * ANY REPRESENTATION OR WARRANTY OF ANY KIND CONCERNING THE MERCHANTABILITY
  * OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
  */
-
-/* Copyright (c) 1992 AT&T - All rights reserved. */
-#include	<string.h>
-#include	"rune.h"
+#include <stdarg.h>
+#include <stddef.h>
+#include <string.h>
+#include "rune.h"
 
 typedef unsigned char uchar;
 
@@ -24,16 +24,19 @@ enum {
 	Bit2 = 5,
 	Bit3 = 4,
 	Bit4 = 3,
+	Bit5 = 2,
 
 	T1 = ((1 << (Bit1 + 1)) - 1) ^ 0xFF,	/* 0000 0000 */
 	Tx = ((1 << (Bitx + 1)) - 1) ^ 0xFF,	/* 1000 0000 */
 	T2 = ((1 << (Bit2 + 1)) - 1) ^ 0xFF,	/* 1100 0000 */
 	T3 = ((1 << (Bit3 + 1)) - 1) ^ 0xFF,	/* 1110 0000 */
 	T4 = ((1 << (Bit4 + 1)) - 1) ^ 0xFF,	/* 1111 0000 */
+	T5 = ((1 << (Bit5 + 1)) - 1) ^ 0xFF,	/* 1111 1000 */
 
-	Rune1 = (1 << (Bit1 + 0 * Bitx)) - 1,	/* 0000 0000 0111 1111 */
-	Rune2 = (1 << (Bit2 + 1 * Bitx)) - 1,	/* 0000 0111 1111 1111 */
-	Rune3 = (1 << (Bit3 + 2 * Bitx)) - 1,	/* 1111 1111 1111 1111 */
+	Rune1 = (1 << (Bit1 + 0 * Bitx)) - 1,	/* 0000 0000 0000 0000 0111 1111 */
+	Rune2 = (1 << (Bit2 + 1 * Bitx)) - 1,	/* 0000 0000 0000 0111 1111 1111 */
+	Rune3 = (1 << (Bit3 + 2 * Bitx)) - 1,	/* 0000 0000 1111 1111 1111 1111 */
+	Rune4 = (1 << (Bit4 + 3 * Bitx)) - 1,	/* 0011 1111 1111 1111 1111 1111 */
 
 	Maskx = (1 << Bitx) - 1,		/* 0011 1111 */
 	Testx = Maskx ^ 0xFF,			/* 1100 0000 */
@@ -44,7 +47,7 @@ enum {
 int
 chartorune(Rune *rune, const char *str)
 {
-	int c, c1, c2;
+	int c, c1, c2, c3;
 	long l;
 
 	/*
@@ -90,6 +93,26 @@ chartorune(Rune *rune, const char *str)
 	}
 
 	/*
+	 * four character sequence
+	 *      10000-10FFFF => T4 Tx Tx Tx
+	 */
+	if (UTFmax >= 4) {
+		c3 = *(uchar *) (str + 3) ^ Tx;
+		if (c3 & Testx)
+			goto bad;
+		if (c < T5) {
+			l = ((((((c << Bitx) | c1) << Bitx) | c2) << Bitx)
+			    | c3) & Rune4;
+			if (l <= Rune3)
+				goto bad;
+			if (l > Runemax)
+				goto bad;
+			*rune = l;
+			return 4;
+		}
+	}
+
+	/*
 	 * bad decoding
 	 */
 bad:
@@ -114,7 +137,7 @@ runetochar(char *str, const Rune *rune)
 
 	/*
 	 * two character sequence
-	 *      0080-07FF => T2 Tx
+	 *      00080-007FF => T2 Tx
 	 */
 	if (c <= Rune2) {
 		str[0] = T2 | (c >> 1 * Bitx);
@@ -124,12 +147,26 @@ runetochar(char *str, const Rune *rune)
 
 	/*
 	 * three character sequence
-	 *      0800-FFFF => T3 Tx Tx
+	 *      00800-0FFFF => T3 Tx Tx
 	 */
-	str[0] = T3 | (c >> 2 * Bitx);
-	str[1] = Tx | ((c >> 1 * Bitx) & Maskx);
-	str[2] = Tx | (c & Maskx);
-	return 3;
+	if (c > Runemax)
+		c = Runeerror;
+	if (c <= Rune3) {
+		str[0] = T3 | (c >> 2 * Bitx);
+		str[1] = Tx | ((c >> 1 * Bitx) & Maskx);
+		str[2] = Tx | (c & Maskx);
+		return 3;
+	}
+
+	/*
+	 * four character sequence
+	 *      010000-1FFFFF => T4 Tx Tx Tx
+	 */
+	str[0] = T4 | (c >> 3 * Bitx);
+	str[1] = Tx | ((c >> 2 * Bitx) & Maskx);
+	str[2] = Tx | ((c >> 1 * Bitx) & Maskx);
+	str[3] = Tx | (c & Maskx);
+	return 4;
 }
 
 int
@@ -147,46 +184,39 @@ fullrune(const char *str, int n)
 {
 	int c;
 
-	if (n > 0) {
-		c = *(uchar *) str;
-		if (c < Tx)
-			return 1;
-		if (n > 1)
-			if (c < T3 || n > 2)
-				return 1;
-	}
-	return 0;
+	if (n <= 0)
+		return 0;
+	c = *(uchar *) str;
+	if (c < Tx)
+		return 1;
+	if (c < T3)
+		return n >= 2;
+	if (UTFmax == 3 || c < T4)
+		return n >= 3;
+	return n >= 4;
 }
 
-char *
-utfrune(char *s, long c)
+size_t
+runenlen(const Rune *r, int nrune)
 {
-	long c1;
-	Rune r;
-	int n;
+	int nb, c;
 
-	if (c < Runesync)	/* not part of utf sequence */
-		return strchr(s, c);
-
-	for (;;) {
-		c1 = *(uchar *) s;
-		if (c1 < Runeself) {	/* one byte rune */
-			if (c1 == 0)
-				return 0;
-			if (c1 == c)
-				return s;
-			s++;
-			continue;
-		}
-		n = chartorune(&r, s);
-		if (r == c)
-			return s;
-		s += n;
+	nb = 0;
+	while (nrune--) {
+		c = *r++;
+		if (c <= Rune1)
+			nb++;
+		else if (c <= Rune2)
+			nb += 2;
+		else if (c <= Rune3 || c > Runemax)
+			nb += 3;
+		else
+			nb += 4;
 	}
-	return 0;
+	return nb;
 }
 
-long
+size_t
 utflen(const char *s)
 {
 	int c;
@@ -204,5 +234,82 @@ utflen(const char *s)
 			s += chartorune(&rune, s);
 		n++;
 	}
+}
+
+char *
+utfrune(const char *s, long c)
+{
+	long c1;
+	Rune r;
+	int n;
+
+	if (c < Runesync)	/* not part of utf sequence */
+		return strchr(s, c);
+
+	for (;;) {
+		c1 = *(uchar *) s;
+		if (c1 < Runeself) {	/* one byte rune */
+			if (c1 == 0)
+				return 0;
+			if (c1 == c)
+				return (char *)s;
+			s++;
+			continue;
+		}
+		n = chartorune(&r, s);
+		if (r == c)
+			return (char *)s;
+		s += n;
+	}
+}
+
+char *
+utfrrune(const char *s, long c)
+{
+	long c1;
+	Rune r;
+	char *s1;
+
+	if (c < Runesync)	/* not part of utf sequence */
+		return strrchr(s, c);
+
+	s1 = 0;
+	for (;;) {
+		c1 = *(uchar *) s;
+		if (c1 < Runeself) {	/* one byte rune */
+			if (c1 == 0)
+				return s1;
+			if (c1 == c)
+				s1 = (char *)s;
+			s++;
+			continue;
+		}
+		c1 = chartorune(&r, s);
+		if (r == c)
+			s1 = (char *)s;
+		s += c1;
+	}
+}
+
+/*
+ * Return pointer to first occurrence of s2 in s1,
+ * 0 if none
+ */
+char *
+utfutf(const char *s1, const char *s2)
+{
+	char *p;
+	long f, n1, n2;
+	Rune r;
+
+	n1 = chartorune(&r, s2);
+	f = r;
+	if (f <= Runesync)	/* represents self */
+		return strstr(s1, s2);
+
+	n2 = strlen(s2);
+	for (p = (char *)s1; (p = utfrune(p, f)) != 0; p += n1)
+		if (strncmp(p, s2, n2) == 0)
+			return p;
 	return 0;
 }
